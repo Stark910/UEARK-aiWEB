@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UEARK AI Portal</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        /* --- 基礎設定 --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #ffffff;
+            display: flex;
+            justify_content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+            padding-top: 20px;
+            overscroll-behavior-y: none; 
+        }
+
+        /* --- 手機 APP 外框 --- */
+        .app-container {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 420px;
+            min-height: 85vh;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden;
+            padding-bottom: 60px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #eee;
+        }
+
+        /* --- 品牌標題區 --- */
+        .header {
+            background: linear-gradient(135deg, #20506b 0%, #153B50 100%);
+            padding: 30px 20px 20px 20px;
+            color: white;
+            text-align: center;
+            border-bottom: 4px solid #3b82f6; 
+        }
+        
+        .brand-logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 10px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            mix-blend-mode: screen; 
+        }
+
+        .header h1 { 
+            margin: 0; 
+            font-size: 16px; 
+            font-weight: 400; 
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #dbeafe;
+            margin-bottom: 15px;
+        }
+        
+        /* --- 備份功能按鈕區 --- */
+        .backup-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-backup {
+            background-color: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #e0e0e0;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            transition: 0.2s;
+        }
+        .btn-backup:hover { background-color: rgba(255, 255, 255, 0.3); color: white; }
+
+        /* --- 控制面板 --- */
+        .control-panel {
+            padding: 12px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .switch-label { font-size: 13px; font-weight: 600; color: #666; }
+        
+        /* --- 按鈕樣式 --- */
+        .btn { border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .btn-edit { background-color: #f59e0b; color: white; font-weight: bold; }
+        .btn-edit.active { background-color: #d97706; }
+        .btn-reset { background-color: #e5e7eb; color: #555; }
+        .btn-reset:hover { background-color: #d1d5db; }
+        
+        .btn-add-cat { 
+            width: 90%; margin: 20px auto; display: block; 
+            background: #10b981; color: white; padding: 12px; font-size: 16px; border: none; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+        }
+
+        /* --- 刪除與拖曳樣式 --- */
+        .btn-del-cat, .btn-del-link {
+            background: #ef4444; color: white; border-radius: 50%; 
+            display: none; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 10;
+        }
+        .btn-del-cat { width: 20px; height: 20px; font-size: 12px; margin-left: 10px; border: none; }
+        .btn-del-link { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; font-size: 12px; }
+
+        .editing .btn-del-cat, .editing .btn-del-link { display: inline-flex; }
+        .editing .category-btn { border-left: 4px solid #f59e0b; background-color: #fffbeb; }
+
+        /* 拖曳時的視覺效果 */
+        .sortable-ghost { opacity: 0.4; background: #e2e8f0; }
+        .sortable-drag { cursor: grabbing; }
+        
+        /* 編輯模式下，滑鼠變成移動圖示 */
+        .editing .category-item { cursor: move; } 
+        .editing .ai-link-wrapper { cursor: move; }
+
+        /* --- 分類列表 --- */
+        #contentArea { flex: 1; overflow-y: auto; overflow-x: hidden; }
+        .category-item { border-bottom: 1px solid #f0f0f0; background: #fff; }
+
+        .category-btn {
+            background-color: #fff;
+            color: #333;
+            cursor: pointer;
+            padding: 20px 24px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            outline: none;
+            transition: background 0.2s;
+        }
+        .category-btn:hover { background-color: #fafafa; }
+        
+        .cat-title-group { display: flex; align-items: center; pointer-events: none; }
+        .cat-title-group span { pointer-events: none; }
+        .btn-del-cat { pointer-events: auto; }
+
+        .panel {
+            padding: 0 15px;
+            background-color: #f8fafc;
+            display: none;
+        }
+        .panel.show { display: block; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+
+        /* --- 連結網格 --- */
+        .link-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 15px 5px;
+        }
+
+        .ai-link-wrapper { position: relative; }
+
+        .ai-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            padding: 15px 10px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #475569;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+            height: 45px;
+            font-weight: 500;
+            transition: all 0.2s;
+            overflow: hidden; text-overflow: ellipsis;
+            user-select: none;
+        }
+        
+        /* --- 修正 BUG 的核心 CSS --- */
+        /* 1. 編輯模式下，一般連結不能點 (為了拖曳) */
+        .editing .ai-link { pointer-events: none; }
+        
+        /* 2. 但是！新增按鈕 (也有 ai-link class) 必須可以點，且不能被拖曳 */
+        .editing .add-link-btn { 
+            pointer-events: auto !important; 
+            cursor: pointer; 
+            border: 2px dashed #10b981; /* 加強邊框讓它在編輯模式更明顯 */
+        }
+        .editing .add-link-wrapper { cursor: default; } /* 新增按鈕的外框不給拖曳手勢 */
+
+        .ai-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+
+        .add-link-btn {
+            background-color: #ecfdf5;
+            color: #059669;
+            border: 1px dashed #10b981;
+            cursor: pointer;
+        }
+        
+        #importInput { display: none; }
+
+        /* --- 頁尾公司宣告 --- */
+        .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #eee;
+            margin-top: auto;
+        }
+        .footer strong { color: #555; font-weight: 600; }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container" id="appContainer">
+    <div class="header">
+        <img src="logo.png" alt="UEARK Logo" class="brand-logo" onerror="this.style.display='none'; document.getElementById('alt-title').style.display='block';">
+        <h1 id="alt-title" style="display:none;">UEARK</h1>
+        
+        <h1>AI Navigation Portal</h1>
+        
+        <div class="backup-controls">
+            <button class="btn-backup" onclick="exportData()">⬇ 匯出設定</button>
+            <button class="btn-backup" onclick="document.getElementById('importInput').click()">⬆ 匯入設定</button>
+            <input type="file" id="importInput" accept=".json" onchange="importData(this)">
+        </div>
+    </div>
+    
+    <div class="control-panel">
+        <span class="switch-label">🔧 管理模式：</span>
+        <div>
+            <button class="btn btn-reset" onclick="resetData()">重置</button>
+            <button class="btn btn-edit" id="editBtn" onclick="toggleEditMode()">OFF</button>
+        </div>
+    </div>
+
+    <div id="contentArea"></div>
+
+    <button class="btn btn-add-cat" id="addCatBtn" onclick="addCategory()" style="display:none;">+ 連續新增分類</button>
+
+    <div class="footer">
+        Powered by <strong>UEARK</strong><br>
+        © 2026 All Rights Reserved.
+    </div>
+</div>
+
+<script>
+    // --- 1. 預設資料 ---
+    const defaultData = [
+        {
+            "title": "✂️ 影片剪輯 & 製作",
+            "links": [
+                { "name": "剪映", "url": "https://www.capcut.com/" },
+                { "name": "OpusClip", "url": "https://www.opus.pro/" },
+                { "name": "Vrew", "url": "https://vrew.voyagerx.com/" }
+            ]
+        },
+        {
+            "title": "🎬 影片生成 AI",
+            "links": [
+                { "name": "Runway", "url": "https://runwayml.com/" },
+                { "name": "Pika", "url": "https://pika.art/" },
+                { "name": "Luma", "url": "https://lumalabs.ai/" },
+                { "name": "即夢AI", "url": "https://jimeng.jianying.com/ai-tool/home/" },
+                { "name": "可靈AI", "url": "https://app.klingai.com/global/" },
+                { "name": "SORA2", "url": "https://sora.chatgpt.com/drafts" },
+                { "name": "海螺AI", "url": "https://hailuoai.video/create" },
+                { "name": "HIGGSFIELD.AI", "url": "https://higgsfield.ai/" },
+                { "name": "OIIOII", "url": "https://www.oiioii.ai/home" }
+            ]
+        },
+        {
+            "title": "🎵 聲音與音樂 AI",
+            "links": [
+                { "name": "Suno", "url": "https://suno.com/" },
+                { "name": "Udio", "url": "https://www.udio.com/" },
+                { "name": "ElevenLabs", "url": "https://elevenlabs.io/" }
+            ]
+        },
+        {
+            "title": "🎨 圖片與繪圖 AI",
+            "links": [
+                { "name": "Midjourney", "url": "https://www.midjourney.com/" },
+                { "name": "Leonardo", "url": "https://leonardo.ai/" },
+                { "name": "Civitai", "url": "https://civitai.com/" }
+            ]
+        },
+        {
+            "title": "🤖 文字助理 AI",
+            "links": [
+                { "name": "ChatGPT", "url": "https://chatgpt.com/" },
+                { "name": "Gemini", "url": "https://gemini.google.com/" },
+                { "name": "Claude", "url": "https://claude.ai/" }
+            ]
+        }
+    ];
+
+    // --- 2. 系統邏輯 ---
+    let appData = [];
+    let isEditing = false;
+    let sortables = []; 
+
+    function init() {
+        const savedData = localStorage.getItem('ueark_aiToolsData_v45');
+        if (savedData) {
+            appData = JSON.parse(savedData);
+        } else {
+            appData = JSON.parse(JSON.stringify(defaultData));
+        }
+        render();
+    }
+
+    function saveData() {
+        localStorage.setItem('ueark_aiToolsData_v45', JSON.stringify(appData));
+    }
+
+    function exportData() {
+        const dataStr = JSON.stringify(appData, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const date = new Date().toISOString().slice(0,10);
+        a.download = `UEARK_AIConfig_${date}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function importData(inputElement) {
+        const file = inputElement.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if (Array.isArray(importedData)) {
+                    if(confirm("確定要匯入此設定檔嗎？")) {
+                        appData = importedData;
+                        saveData();
+                        alert("匯入成功！");
+                        render();
+                    }
+                }
+            } catch (err) { alert("檔案格式錯誤"); }
+            inputElement.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // --- 3. 核心渲染與拖曳設定 ---
+    function render() {
+        const contentArea = document.getElementById('contentArea');
+        contentArea.innerHTML = '';
+        sortables = []; 
+
+        appData.forEach((cat, catIndex) => {
+            const catDiv = document.createElement('div');
+            catDiv.className = 'category-item';
+            catDiv.setAttribute('data-id', catIndex); 
+
+            let delBtnHtml = isEditing ? `<button class="btn btn-del-cat" onclick="deleteCategory(${catIndex})">✕</button>` : '';
+            
+            catDiv.innerHTML = `
+                <button class="category-btn" onclick="togglePanel(this)">
+                    <div class="cat-title-group">
+                        <span class="sort-handle">${cat.title}</span>
+                        ${delBtnHtml}
+                    </div>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="panel">
+                    <div class="link-grid" id="grid-${catIndex}"></div>
+                </div>
+            `;
+            contentArea.appendChild(catDiv);
+
+            const grid = document.getElementById(`grid-${catIndex}`);
+            cat.links.forEach((link, linkIndex) => {
+                const linkWrapper = document.createElement('div');
+                linkWrapper.className = 'ai-link-wrapper';
+                linkWrapper.setAttribute('data-index', linkIndex); 
+
+                let delLinkHtml = isEditing ? `<div class="btn-del-link" onclick="deleteLink(${catIndex}, ${linkIndex})">✕</div>` : '';
+                
+                linkWrapper.innerHTML = `
+                    ${delLinkHtml}
+                    <a href="${link.url}" target="_blank" class="ai-link">${link.name}</a>
+                `;
+                grid.appendChild(linkWrapper);
+            });
+
+            // 編輯模式下的新增按鈕
+            if (isEditing) {
+                const addBtn = document.createElement('div');
+                addBtn.className = 'add-link-wrapper'; // 給個 class 方便 CSS 控制
+                addBtn.innerHTML = `<button class="ai-link add-link-btn" onclick="addLink(${catIndex})">＋ 連續新增</button>`;
+                grid.appendChild(addBtn);
+            }
+
+            // 綁定 Sortable
+            let linkSortable = new Sortable(grid, {
+                group: 'shared',
+                animation: 150,
+                disabled: !isEditing,
+                ghostClass: 'sortable-ghost',
+                filter: '.add-link-wrapper', // 讓新增按鈕不能被拖曳
+                onEnd: function (evt) {
+                    const oldIndex = evt.oldIndex;
+                    const newIndex = evt.newIndex;
+                    
+                    // 修正：因為 DOM 裡多了一個新增按鈕，如果拖到最後面，索引可能會錯
+                    // 但因為 filter 設定了，它不算在 draggable 內，所以大致安全
+                    
+                    if (oldIndex !== newIndex) {
+                        const item = appData[catIndex].links.splice(oldIndex, 1)[0];
+                        appData[catIndex].links.splice(newIndex, 0, item);
+                        saveData();
+                        render();
+                    }
+                }
+            });
+            sortables.push(linkSortable);
+        });
+
+        let catSortable = new Sortable(contentArea, {
+            animation: 150,
+            disabled: !isEditing,
+            handle: '.category-btn',
+            ghostClass: 'sortable-ghost',
+            onEnd: function (evt) {
+                const oldIndex = evt.oldIndex;
+                const newIndex = evt.newIndex;
+                
+                if (oldIndex !== newIndex) {
+                    const item = appData.splice(oldIndex, 1)[0];
+                    appData.splice(newIndex, 0, item);
+                    saveData();
+                    render();
+                }
+            }
+        });
+        sortables.push(catSortable);
+
+        document.getElementById('addCatBtn').style.display = isEditing ? 'block' : 'none';
+        
+        const editBtn = document.getElementById('editBtn');
+        const container = document.getElementById('appContainer');
+        if(isEditing) {
+            editBtn.innerText = "完成編輯";
+            editBtn.classList.add('active');
+            container.classList.add('editing');
+            document.querySelectorAll('.panel').forEach(p => p.classList.add('show'));
+        } else {
+            editBtn.innerText = "編輯模式";
+            editBtn.classList.remove('active');
+            container.classList.remove('editing');
+        }
+    }
+
+    // --- 4. 互動邏輯 ---
+
+    function togglePanel(btn) {
+        if(isEditing) return;
+        const panel = btn.nextElementSibling;
+        panel.classList.toggle('show');
+        const arrow = btn.querySelector('.arrow');
+        arrow.innerText = panel.classList.contains('show') ? '▲' : '▼';
+    }
+
+    function toggleEditMode() {
+        isEditing = !isEditing;
+        render(); 
+    }
+
+    function addLink(catIndex) {
+        let count = 0;
+        while(true) {
+            let promptText = count === 0 
+                ? "【步驟 1/2】請輸入工具名稱 (直接按「取消」結束):" 
+                : "✅ 已儲存！\n\n請輸入下一個工具名稱 (直接按「取消」結束):";
+
+            const name = prompt(promptText);
+            if (!name) break; 
+
+            const url = prompt(`【步驟 2/2】請輸入「${name}」的網址:`, "https://");
+            if (!url) {
+                alert("❌ 取消新增 (未輸入網址)");
+                continue; 
+            }
+
+            appData[catIndex].links.push({ name: name, url: url });
+            saveData(); 
+            count++;
+        }
+        render(); 
+    }
+
+    function deleteLink(catIndex, linkIndex) {
+        if(confirm("刪除此連結？")) {
+            appData[catIndex].links.splice(linkIndex, 1);
+            saveData();
+            render();
+        }
+    }
+
+    function addCategory() {
+        let count = 0;
+        while(true) {
+            let promptText = count === 0 
+                ? "請輸入新分類名稱 (直接按「取消」結束):" 
+                : "✅ 分類已建立！\n\n請輸入下一個分類名稱 (直接按「取消」結束):";
+
+            const title = prompt(promptText);
+            if (!title) break;
+
+            appData.push({ title: title, links: [] });
+            saveData();
+            count++;
+        }
+        render();
+    }
+
+    function deleteCategory(index) {
+        if(confirm("確定刪除此分類？")) {
+            appData.splice(index, 1);
+            saveData();
+            render();
+        }
+    }
+
+    function resetData() {
+        if(confirm("重置將恢復原廠設定，確定嗎？")) {
+            localStorage.removeItem('ueark_aiToolsData_v45');
+            appData = JSON.parse(JSON.stringify(defaultData));
+            isEditing = false;
+            init();
+        }
+    }
+
+    init();
+</script>
+
+</body>
+</html>
